@@ -63,7 +63,10 @@ class GameController:
             car.accelerate()
         if player_input['brake']:
             car.brake()
-
+        if player_input['left']:
+            car.turn_left()
+        if player_input['right']:
+            car.turn_right()
     def render(self) -> None:
         self.view.draw(self.model)
 
