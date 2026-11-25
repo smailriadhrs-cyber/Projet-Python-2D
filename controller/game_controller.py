@@ -58,8 +58,11 @@ class GameController:
         self.model.update()
 
     def apply_input(self, car, player_input) -> None:
+        """Applique les commandes du joueur sur la voiture."""
         if player_input['accelerate']:
             car.accelerate()
+        if player_input['brake']:
+            car.brake()
 
     def render(self) -> None:
         self.view.draw(self.model)
