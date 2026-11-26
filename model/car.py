@@ -2,53 +2,117 @@ import pygame
 import math
 from constants import (
     CAR_ACCELERATION, CAR_BRAKE, CAR_MAX_SPEED, CAR_MAX_REVERSE_SPEED,
-    CAR_TURN_SPEED, CAR_WIDTH, CAR_HEIGHT, TILE_SIZE, CAR_AIR_FRICTION
+    CAR_TURN_SPEED, CAR_AIR_FRICTION, CAR_DRIFT_THRESHOLD, CAR_DRIFT_FRICTION,
+    CAR_WIDTH, CAR_HEIGHT, TILE_SIZE
 )
 
 
 class Car:
-    """Represente une voiture, sa position, sa vitesse et son affichage."""
+    """Represente une voiture, sa physique 2D (avec drift) et son affichage."""
 
     def __init__(self, start_col: int, start_row: int):
-        """Place la voiture au centre de la case de depart."""
+        """Place la voiture au centre de la case de depart avec une vitesse nulle."""
         self.x = start_col * TILE_SIZE + TILE_SIZE // 2
         self.y = start_row * TILE_SIZE + TILE_SIZE // 2
+        self.vx: float = 0.0
+        self.vy: float = 0.0
         self.speed: float = 0.0
         self.angle: float = 0.0
         self.sprite = self.build_sprite()
+        self.is_drifting: bool = False
+    def get_forward_vector(self) -> tuple[float, float]:
+        """Retourne le vecteur unitaire pointe vers l'avant de la voiture."""
+        rad = math.radians(self.angle)
+        return -math.sin(rad), math.cos(rad)
+    def get_lateral_vector(self) -> tuple[float, float]:
+        """Retourne le vecteur unitaire perpendiculaire a la voiture."""
+        rad = math.radians(self.angle)
+        return math.cos(rad), math.sin(rad)
 
-    def accelerate(self) -> None:
-        """Augmente la vitesse sans depasser la vitesse maximale."""
-        self.speed = min(self.speed + CAR_ACCELERATION, CAR_MAX_SPEED)
-    def brake(self) -> None:
-        """Freine la voiture, puis la fait reculer jusqu'a la vitesse max arriere."""
-        self.speed = max(self.speed - CAR_BRAKE, CAR_MAX_REVERSE_SPEED)
+    def accelerate(self, traction: float = 1.0) -> None:
+        """Accelere dans la direction du capot sans depasser la vitesse maximale."""
+        fx, fy = self.get_forward_vector()
+        self.vx += fx * CAR_ACCELERATION * traction
+        self.vy += fy * CAR_ACCELERATION * traction
+
+        total_speed = math.hypot(self.vx, self.vy)
+        if total_speed > CAR_MAX_SPEED:
+            ratio = CAR_MAX_SPEED / total_speed
+            self.vx *= ratio
+            self.vy *= ratio
+    def brake(self, traction: float = 1.0) -> None:
+        """Freine la voiture puis la fait reculer jusqu'a la vitesse max arriere."""
+        fx, fy = self.get_forward_vector()
+        self.vx -= fx * CAR_BRAKE * traction
+        self.vy -= fy * CAR_BRAKE * traction
+
+        v_forward = self.vx * fx + self.vy * fy
+        if v_forward < CAR_MAX_REVERSE_SPEED:
+            diff = CAR_MAX_REVERSE_SPEED - v_forward
+            self.vx += fx * diff
+            self.vy += fy * diff
     def turn_left(self) -> None:
         """Fait tourner la voiture a gauche si elle est en mouvement."""
-        if abs(self.speed) < 0.05:
+        if math.hypot(self.vx, self.vy) < 0.05:
             return
-        direction = 1 if self.speed > 0 else -1
+        fx, fy = self.get_forward_vector()
+        v_forward = self.vx * fx + self.vy * fy
+        direction = 1 if v_forward >= 0 else -1
         self.angle -= CAR_TURN_SPEED * direction
-
     def turn_right(self) -> None:
         """Fait tourner la voiture a droite si elle est en mouvement."""
-        if abs(self.speed) < 0.05:
+        if math.hypot(self.vx, self.vy) < 0.05:
             return
-        direction = 1 if self.speed > 0 else -1
+        fx, fy = self.get_forward_vector()
+        v_forward = self.vx * fx + self.vy * fy
+        direction = 1 if v_forward >= 0 else -1
         self.angle += CAR_TURN_SPEED * direction
 
     def apply_air_friction(self) -> None:
-        """Applique les frottements de l'air proportionnels a la vitesse."""
-        self.speed -= self.speed * CAR_AIR_FRICTION
-        if abs(self.speed) < 0.02:
-            self.speed = 0.0
+        """Reduit la vitesse proportionnellement aux frottements de l'air."""
+        self.vx *= (1 - CAR_AIR_FRICTION)
+        self.vy *= (1 - CAR_AIR_FRICTION)
+        if math.hypot(self.vx, self.vy) < 0.02:
+            self.vx = 0.0
+            self.vy = 0.0
 
-    def update_position(self) -> None:
-        """Applique les frottements de l'air puis deplace la voiture en 2D."""
+    def update_position(
+        self,
+        drift_threshold: float = CAR_DRIFT_THRESHOLD,
+        drift_friction: float = CAR_DRIFT_FRICTION
+    ) -> None:
+        """Met a jour l'etat de derapage, la vitesse et la position 2D."""
         self.apply_air_friction()
-        rad = math.radians(self.angle)
-        self.x += -math.sin(rad) * self.speed
-        self.y += math.cos(rad) * self.speed
+
+        fx, fy = self.get_forward_vector()
+        lx, ly = self.get_lateral_vector()
+
+        v_forward = self.vx * fx + self.vy * fy
+        v_lateral = self.vx * lx + self.vy * ly
+        total_speed = math.hypot(self.vx, self.vy)
+
+        # Automate d'etat : passage entre adherence et derapage
+        if not self.is_drifting:
+            if abs(v_lateral) > drift_threshold and total_speed > 1.0:
+                self.is_drifting = True
+        else:
+            if abs(v_lateral) < drift_threshold * 0.5 or total_speed < 0.5:
+                self.is_drifting = False
+
+        if self.is_drifting:
+            # En derapage, la glissade laterale diminue selon le frottement du terrain
+            v_lateral *= (1 - drift_friction)
+            self.vx = fx * v_forward + lx * v_lateral
+            self.vy = fy * v_forward + ly * v_lateral
+        else:
+            # En adherence, la vitesse reste alignee avec l'orientation de la voiture
+            sign = 1 if v_forward >= 0 else -1
+            self.vx = fx * total_speed * sign
+            self.vy = fy * total_speed * sign
+
+        self.x += self.vx
+        self.y += self.vy
+        self.speed = math.hypot(self.vx, self.vy)
         
 
     def build_sprite(self) -> pygame.Surface:
