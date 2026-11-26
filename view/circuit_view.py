@@ -3,6 +3,14 @@ from constants import TILE_SIZE, COLOR_BG
 from model.circuit import Circuit
 from model.road_tile import RoadTile
 
+TERRAIN_COLORS: dict[str, tuple[int, int, int]] = {
+    "road": (75, 75, 85),
+    "grass": (60, 150, 70),
+    "dirt": (150, 100, 55),
+    "ice": (165, 220, 245),
+    "void": COLOR_BG,
+}
+
 
 class CircuitView:
     """Gère le rendu graphique d'un circuit et de ses cases avec Pygame."""
@@ -16,11 +24,13 @@ class CircuitView:
         key = (tile.terrain, tile_size)
         if key not in self._sprite_cache:
             surface = pygame.Surface((tile_size, tile_size))
-            if tile.terrain == "void":
-                surface.fill(COLOR_BG)
-            else:
-                surface.fill((80, 80, 90))
-                pygame.draw.rect(surface, (60, 60, 70), surface.get_rect(), 2)
+            color = TERRAIN_COLORS.get(tile.terrain, COLOR_BG)
+            surface.fill(color)
+
+            if tile.terrain != "void":
+                border_color = tuple(max(0, c - 20) for c in color)
+                pygame.draw.rect(surface, border_color, surface.get_rect(), 1)
+
             self._sprite_cache[key] = surface
         return self._sprite_cache[key]
 

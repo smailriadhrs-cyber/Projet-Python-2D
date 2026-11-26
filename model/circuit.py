@@ -1,8 +1,13 @@
 from model.road_tile import RoadTile
 from constants import TILE_SIZE
 
-TERRAIN_LEGEND = {
+# Légende des terrains :
+# R = Route (road), G = Herbe (grass), D = Terre (dirt), I = Glace (ice), V = Vide (void)
+TERRAIN_LEGEND: dict[str, str] = {
     "R": "road",
+    "G": "grass",
+    "D": "dirt",
+    "I": "ice",
     "V": "void",
 }
 
@@ -11,28 +16,28 @@ CIRCUIT_LAYOUTS: dict[str, list[str]] = {
         "VVVVVVVVVVVVVVVV",
         "VRRRRRRRRRRRRRRV",
         "VRRRRRRRRRRRRRRV",
-        "VRRRVVVVVVVVRRRV",
-        "VRRRVVVVVVVVRRRV",
-        "VRRRVVVVVVVVRRRV",
-        "VRRRVVVVVVVVRRRV",
-        "VRRRVVVVVVVVRRRV",
-        "VRRRVVVVVVVVRRRV",
+        "VRRRGGGGGGGGRRRV",
+        "VRRRGVVVVVVGRRRV",
+        "VRRRGVVVVVVGRRRV",
+        "VRRRGVVVVVVGRRRV",
+        "VRRRGVVVVVVGRRRV",
+        "VRRRGGGGGGGGRRRV",
         "VRRRRRRRRRRRRRRV",
         "VRRRRRRRRRRRRRRV",
         "VVVVVVVVVVVVVVVV",
     ],
     "Circuit 2 - Chicane": [
         "VVVVVVVVVVVVVVVV",
-        "VRRRRRRVVRRRRRRV",
-        "VRRRRRRVVRRRRRRV",
-        "VRRVVRRVVRRVVRRV",
-        "VRRVVRRRRRRVVRRV",
-        "VRRVVRRRRRRVVRRV",
-        "VRRVVVVVVVVVVRRV",
-        "VRRVVVVVVVVVVRRV",
-        "VRRVVVVVVVVVVRRV",
-        "VRRRRRRRRRRRRRRV",
-        "VRRRRRRRRRRRRRRV",
+        "VRRRRRRVVIIIIRRV",
+        "VRRRRRRVVIIIIRRV",
+        "VRRGGRRVVRRGGRRV",
+        "VRRGGRRRRRRGGRRV",
+        "VRRGGRRRRRRGGRRV",
+        "VRRGGVVVVVVGGRRV",
+        "VRRGGVVVVVVGGRRV",
+        "VRRGGVVVVVVGGRRV",
+        "VRRRRDDDDDDRRRRV",
+        "VRRRRDDDDDDRRRRV",
         "VVVVVVVVVVVVVVVV",
     ],
 }
@@ -59,7 +64,7 @@ class Circuit:
 
         Args:
             name: Nom du circuit.
-            layout: Liste de lignes de caractères ('R' pour route, 'V' pour vide).
+            layout: Liste de lignes de caractères ('R', 'G', 'D', 'I', 'V').
 
         Returns:
             Une instance de Circuit correspondant à la carte.
