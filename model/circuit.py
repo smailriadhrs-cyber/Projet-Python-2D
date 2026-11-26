@@ -1,43 +1,49 @@
 from model.road_tile import RoadTile
 from constants import TILE_SIZE
 
-# Légende des terrains :
-# R = Route (road), G = Herbe (grass), D = Terre (dirt), I = Glace (ice), V = Vide (void)
-TERRAIN_LEGEND: dict[str, str] = {
-    "R": "road",
-    "G": "grass",
-    "D": "dirt",
-    "I": "ice",
-    "V": "void",
+# Légende des symboles : chaque lettre associe (terrain, bloc)
+# Terrains : R = Route, G = Herbe, D = Terre, I = Glace, V = Vide
+# Blocs (posés sur de la route) : 1 = Départ J1, 2 = Départ J2, C = Checkpoint, L = Arrivée, B = Boost
+SYMBOL_LEGEND: dict[str, tuple[str, str | None]] = {
+    "R": ("road", None),
+    "G": ("grass", None),
+    "D": ("dirt", None),
+    "I": ("ice", None),
+    "V": ("void", None),
+    "1": ("road", "start_1"),
+    "2": ("road", "start_2"),
+    "C": ("road", "checkpoint"),
+    "L": ("road", "finish"),
+    "B": ("road", "boost"),
 }
 
 CIRCUIT_LAYOUTS: dict[str, list[str]] = {
     "Circuit 1 - Ovale": [
         "VVVVVVVVVVVVVVVV",
-        "VRRRRRRRRRRRRRRV",
-        "VRRRRRRRRRRRRRRV",
+        "VRRRRRRCCRRRRBBV",
+        "VRRRRRRCCRRRRRRV",
         "VRRRGGGGGGGGRRRV",
-        "VRRRGVVVVVVGRRRV",
-        "VRRRGVVVVVVGRRRV",
+        "VCRRGVVVVVVGRRCV",
+        "VCRRGVVVVVVGRRCV",
         "VRRRGVVVVVVGRRRV",
         "VRRRGVVVVVVGRRRV",
         "VRRRGGGGGGGGRRRV",
-        "VRRRRRRRRRRRRRRV",
-        "VRRRRRRRRRRRRRRV",
+        "VRRRRR1LRRRRRRRV",
+        "VRRRRR2LRRRRRRRV",
         "VVVVVVVVVVVVVVVV",
     ],
     "Circuit 2 - Chicane": [
         "VVVVVVVVVVVVVVVV",
-        "VRRRRRRVVIIIIRRV",
-        "VRRRRRRVVIIIIRRV",
+        "VRRRRCCVVIIIIRRV",
+        "VRRRRCCVVIIIIRRV",
         "VRRGGRRVVRRGGRRV",
         "VRRGGRRRRRRGGRRV",
         "VRRGGRRRRRRGGRRV",
+        "VRRGGVVVVVVGGRCV",
+        "VRRGGVVVVVVGGRCV",
         "VRRGGVVVVVVGGRRV",
-        "VRRGGVVVVVVGGRRV",
-        "VRRGGVVVVVVGGRRV",
-        "VRRRRDDDDDDRRRRV",
-        "VRRRRDDDDDDRRRRV",
+        "VBRR1LDDDDDDRRRV",
+        "VBRR2LDDDDDDRRRV",
         "VVVVVVVVVVVVVVVV",
     ],
 }
@@ -64,7 +70,7 @@ class Circuit:
 
         Args:
             name: Nom du circuit.
-            layout: Liste de lignes de caractères ('R', 'G', 'D', 'I', 'V').
+            layout: Liste de lignes de caractères définis dans SYMBOL_LEGEND.
 
         Returns:
             Une instance de Circuit correspondant à la carte.
@@ -73,8 +79,8 @@ class Circuit:
         for row_idx, line in enumerate(layout):
             row: list[RoadTile] = []
             for col_idx, symbol in enumerate(line):
-                terrain = TERRAIN_LEGEND.get(symbol, "void")
-                row.append(RoadTile(col=col_idx, row=row_idx, terrain=terrain))
+                terrain, block = SYMBOL_LEGEND.get(symbol, ("void", None))
+                row.append(RoadTile(col=col_idx, row=row_idx, terrain=terrain, block=block))
             grid.append(row)
         return cls(grid=grid, name=name)
 
@@ -112,6 +118,31 @@ class Circuit:
     def is_void_at_pixel(self, px: float, py: float) -> bool:
         """Indique si la position en pixels (px, py) est sur du vide ou hors carte."""
         return self.get_tile_at_pixel(px, py).is_void()
+
+    def is_boost_at_pixel(self, px: float, py: float) -> bool:
+        """Indique si la position en pixels (px, py) se trouve sur un bloc boost."""
+        return self.get_tile_at_pixel(px, py).is_boost()
+
+    def get_tiles_by_block(self, block_type: str) -> list[RoadTile]:
+        """Retourne toutes les cases du circuit possédant le type de bloc demandé."""
+        matching_tiles: list[RoadTile] = []
+        for row in self.grid:
+            for tile in row:
+                if tile.block == block_type:
+                    matching_tiles.append(tile)
+        return matching_tiles
+
+    def get_start_positions(self) -> dict[int, tuple[float, float]]:
+        """Retourne les coordonnées en pixels (centre de case) des départs 1 et 2."""
+        starts: dict[int, tuple[float, float]] = {}
+        for player_num, block_name in ((1, "start_1"), (2, "start_2")):
+            tiles = self.get_tiles_by_block(block_name)
+            if tiles:
+                tile = tiles[0]
+                cx = (tile.col + 0.5) * TILE_SIZE
+                cy = (tile.row + 0.5) * TILE_SIZE
+                starts[player_num] = (cx, cy)
+        return starts
 
     def pixel_width(self) -> int:
         """Retourne la largeur totale du circuit en pixels."""

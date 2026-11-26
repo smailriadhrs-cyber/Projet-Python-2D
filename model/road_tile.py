@@ -26,27 +26,40 @@ TERRAIN_PROPERTIES: dict[str, dict[str, float]] = {
     },
 }
 
+VALID_BLOCKS: set[str | None] = {
+    None,
+    "start_1",
+    "start_2",
+    "checkpoint",
+    "finish",
+    "boost",
+}
+
 
 class RoadTile:
-    """Représente une case logique de la grille d'un circuit avec ses propriétés physiques."""
+    """Représente une case logique de la grille d'un circuit avec terrain et bloc éventuel."""
 
-    def __init__(self, col: int, row: int, terrain: str = "road"):
-        """Initialise une case à sa position (colonne, ligne) et charge ses coefficients.
+    def __init__(self, col: int, row: int, terrain: str = "road", block: str | None = None):
+        """Initialise une case à sa position (colonne, ligne) et charge ses propriétés.
 
         Args:
             col: Indice de colonne de la case.
             row: Indice de ligne de la case.
             terrain: Type de terrain ('road', 'grass', 'dirt', 'ice', 'void').
+            block: Bloc spécial posé sur la case ('start_1', 'start_2', 'checkpoint', 'finish', 'boost' ou None).
 
         Raises:
-            ValueError: Si le type de terrain n'existe pas dans TERRAIN_PROPERTIES.
+            ValueError: Si le type de terrain ou de bloc n'est pas reconnu.
         """
         if terrain not in TERRAIN_PROPERTIES:
             raise ValueError(f"Type de terrain inconnu : {terrain}")
+        if block not in VALID_BLOCKS:
+            raise ValueError(f"Type de bloc inconnu : {block}")
 
         self.col = col
         self.row = row
         self.terrain = terrain
+        self.block = block
 
         props = TERRAIN_PROPERTIES[terrain]
         self.traction: float = props["traction"]
@@ -56,3 +69,15 @@ class RoadTile:
     def is_void(self) -> bool:
         """Indique si la case correspond à du vide."""
         return self.terrain == "void"
+
+    def is_boost(self) -> bool:
+        """Indique si la case contient un bloc de boost."""
+        return self.block == "boost"
+
+    def is_finish(self) -> bool:
+        """Indique si la case fait partie de la ligne d'arrivée."""
+        return self.block == "finish"
+
+    def is_checkpoint(self) -> bool:
+        """Indique si la case fait partie d'un checkpoint."""
+        return self.block == "checkpoint"
