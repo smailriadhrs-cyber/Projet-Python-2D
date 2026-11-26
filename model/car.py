@@ -2,7 +2,7 @@ import pygame
 import math
 from constants import (
     CAR_ACCELERATION, CAR_BRAKE, CAR_MAX_SPEED, CAR_MAX_REVERSE_SPEED,
-    CAR_TURN_SPEED, CAR_WIDTH, CAR_HEIGHT, TILE_SIZE
+    CAR_TURN_SPEED, CAR_WIDTH, CAR_HEIGHT, TILE_SIZE, CAR_AIR_FRICTION
 )
 
 
@@ -19,7 +19,7 @@ class Car:
 
     def accelerate(self) -> None:
         """Augmente la vitesse sans depasser la vitesse maximale."""
-        self.speed += min(self.speed + CAR_ACCELERATION, CAR_MAX_SPEED)
+        self.speed = min(self.speed + CAR_ACCELERATION, CAR_MAX_SPEED)
     def brake(self) -> None:
         """Freine la voiture, puis la fait reculer jusqu'a la vitesse max arriere."""
         self.speed = max(self.speed - CAR_BRAKE, CAR_MAX_REVERSE_SPEED)
@@ -37,11 +37,19 @@ class Car:
         direction = 1 if self.speed > 0 else -1
         self.angle += CAR_TURN_SPEED * direction
 
+    def apply_air_friction(self) -> None:
+        """Applique les frottements de l'air proportionnels a la vitesse."""
+        self.speed -= self.speed * CAR_AIR_FRICTION
+        if abs(self.speed) < 0.02:
+            self.speed = 0.0
+
     def update_position(self) -> None:
-        """Deplace la voiture en 2D selon sa vitesse et son orientation."""
+        """Applique les frottements de l'air puis deplace la voiture en 2D."""
+        self.apply_air_friction()
         rad = math.radians(self.angle)
         self.x += -math.sin(rad) * self.speed
         self.y += math.cos(rad) * self.speed
+        
 
     def build_sprite(self) -> pygame.Surface:
         """Construit l'image de la voiture avec un pare-brise indiquant l'avant."""
