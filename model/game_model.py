@@ -14,10 +14,7 @@ class GameModel:
         self.cars: list[Car] = []
 
     def load_circuit(self) -> None:
-        """Construit le circuit et place les deux voitures sur leurs positions de depart."""
-        grid = [[RoadTile(col=col_idx, row=row_idx)
-                 for col_idx in range(GRID_COLS)] for row_idx in range(GRID_ROWS)]
-        self.circuit = Circuit(grid=grid)
+        self.circuit = Circuit.create_by_name("Circuit 2 - Chicane")
         self.spawn_cars()
 
     def spawn_cars(self) -> None:
