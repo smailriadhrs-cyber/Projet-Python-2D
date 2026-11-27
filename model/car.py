@@ -10,16 +10,22 @@ from constants import (
 class Car:
     """Represente une voiture, sa physique 2D (avec drift) et son affichage."""
 
-    def __init__(self, start_col: int, start_row: int):
-        """Place la voiture au centre de la case de depart avec une vitesse nulle."""
+    def __init__(
+        self,
+        start_col: int,
+        start_row: int,
+        color: tuple[int, int, int] = (220, 40, 40)
+    ):
+        """Place la voiture sur sa case de depart avec sa couleur."""
         self.x = start_col * TILE_SIZE + TILE_SIZE // 2
         self.y = start_row * TILE_SIZE + TILE_SIZE // 2
         self.vx: float = 0.0
         self.vy: float = 0.0
         self.speed: float = 0.0
         self.angle: float = 0.0
-        self.sprite = self.build_sprite()
         self.is_drifting: bool = False
+        self.color = color
+        self.sprite = self.build_sprite()
     def get_forward_vector(self) -> tuple[float, float]:
         """Retourne le vecteur unitaire pointe vers l'avant de la voiture."""
         rad = math.radians(self.angle)
@@ -83,15 +89,13 @@ class Car:
     ) -> None:
         """Met a jour l'etat de derapage, la vitesse et la position 2D."""
         self.apply_air_friction()
-
         fx, fy = self.get_forward_vector()
         lx, ly = self.get_lateral_vector()
-
         v_forward = self.vx * fx + self.vy * fy
         v_lateral = self.vx * lx + self.vy * ly
         total_speed = math.hypot(self.vx, self.vy)
 
-        # Automate d'etat : passage entre adherence et derapage
+        
         if not self.is_drifting:
             if abs(v_lateral) > drift_threshold and total_speed > 1.0:
                 self.is_drifting = True
@@ -100,26 +104,25 @@ class Car:
                 self.is_drifting = False
 
         if self.is_drifting:
-            # En derapage, la glissade laterale diminue selon le frottement du terrain
             v_lateral *= (1 - drift_friction)
             self.vx = fx * v_forward + lx * v_lateral
             self.vy = fy * v_forward + ly * v_lateral
         else:
-            # En adherence, la vitesse reste alignee avec l'orientation de la voiture
             sign = 1 if v_forward >= 0 else -1
             self.vx = fx * total_speed * sign
             self.vy = fy * total_speed * sign
-
         self.x += self.vx
         self.y += self.vy
         self.speed = math.hypot(self.vx, self.vy)
         
 
     def build_sprite(self) -> pygame.Surface:
-        """Construit l'image de la voiture avec un pare-brise indiquant l'avant."""
+        """Construit l'image de la voiture avec sa couleur et son pare-brise."""
         surf = pygame.Surface((CAR_WIDTH, CAR_HEIGHT), pygame.SRCALPHA)
-        pygame.draw.rect(surf, (255, 0, 0), (0, 0, CAR_WIDTH, CAR_HEIGHT), border_radius=5)
-        pygame.draw.rect(surf, (180, 220, 255), (5, CAR_HEIGHT - 16, CAR_WIDTH - 10, 10), border_radius=2)
+        pygame.draw.rect(surf, self.color, (0, 0, CAR_WIDTH, CAR_HEIGHT), border_radius=5)
+        pygame.draw.rect(
+            surf, (180, 220, 255), (5, CAR_HEIGHT - 16, CAR_WIDTH - 10, 10), border_radius=2
+        )
         return surf
 
     def get_rotated_sprite(self) -> tuple[pygame.Surface, pygame.Rect]:
