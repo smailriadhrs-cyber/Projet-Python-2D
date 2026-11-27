@@ -1,7 +1,16 @@
 import pygame
 
 
-MAPPING = {
+MAPPING_P1 = {
+    pygame.K_z: "accelerate",
+    pygame.K_w: "accelerate",
+    pygame.K_s: "brake",
+    pygame.K_q: "left",
+    pygame.K_a: "left",
+    pygame.K_d: "right",
+}
+
+MAPPING_P2 = {
     pygame.K_UP:    "accelerate",
     pygame.K_DOWN:  "brake",
     pygame.K_LEFT:  "left",
@@ -10,19 +19,22 @@ MAPPING = {
 
 
 class InputHandler:
-    """Lit les touches maintenues au clavier et les associe aux actions du jeu."""
+    """Lit les touches clavier des deux joueurs et les traduit en actions."""
 
     def __init__(self):
-        """Initialise le dictionnaire de correspondance touches -> actions."""
-        self.mapping = MAPPING
+        """Initialise les tables de correspondance clavier pour les 2 joueurs."""
+        self.mappings = [MAPPING_P1, MAPPING_P2]
 
-    def get_inputs(self) -> dict:
-        """Retourne un dictionnaire indiquant si chaque action est active."""
+    def get_inputs(self) -> list[dict]:
+        """Retourne une liste de deux dictionnaires d'actions (Joueur 1 puis Joueur 2)."""
         keys = pygame.key.get_pressed()
-        p = {action: False for action in self.mapping.values()}
+        all_inputs = []
 
-        for key, action in self.mapping.items():
-            if keys[key]:
-                p[action] = True
+        for mapping in self.mappings:
+            player_actions = {action: False for action in mapping.values()}
+            for key, action in mapping.items():
+                if keys[key]:
+                    player_actions[action] = True
+            all_inputs.append(player_actions)
 
-        return p
+        return all_inputs

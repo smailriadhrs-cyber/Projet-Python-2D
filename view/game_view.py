@@ -47,12 +47,12 @@ class GameView:
             self.screen.blit(text_surf, text_surf.get_rect(center=rect.center))
 
     def _draw_racing(self, model: GameModel) -> None:
-        """Affiche le circuit et la voiture pendant la course."""
+        """Affiche le circuit et les voitures pendant la course."""
         if model.circuit is None:
             return
 
         self.circuit_view.draw(self.screen, model.circuit)
 
-        if model.car is not None:
-            surf, rect = model.car.get_rotated_sprite()
+        for car in model.cars:
+            surf, rect = car.get_rotated_sprite()
             self.screen.blit(surf, rect)

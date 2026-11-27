@@ -49,12 +49,14 @@ class GameController:
             self.quit()
 
     def update(self) -> None:
+        """Lit les commandes des deux joueurs et met a jour le modele."""
         if self.model.state != GameState.RACING:
             return
 
-        p1_input = self.input_handler.get_inputs()
-        car = self.model.car
-        self.apply_input(car, p1_input)
+        players_inputs = self.input_handler.get_inputs()
+        for car, player_input in zip(self.model.cars, players_inputs):
+            self.apply_input(car, player_input)
+
         self.model.update()
 
     def apply_input(self, car, player_input) -> None:
@@ -67,6 +69,7 @@ class GameController:
             car.turn_left()
         if player_input['right']:
             car.turn_right()
+            
     def render(self) -> None:
         self.view.draw(self.model)
 
