@@ -55,16 +55,17 @@ class GameController:
 
         players_inputs = self.input_handler.get_inputs()
         for car, player_input in zip(self.model.cars, players_inputs):
-            self.apply_input(car, player_input)
+            tile = self.model.circuit.get_tile_at_pixel(car.x, car.y)
+            self.apply_input(car, player_input, tile.traction)
 
         self.model.update()
 
-    def apply_input(self, car, player_input) -> None:
-        """Applique les commandes du joueur sur la voiture."""
+    def apply_input(self, car, player_input, traction: float = 1.0) -> None:
+        """Applique les commandes d'un joueur sur sa voiture selon la traction du sol."""
         if player_input['accelerate']:
-            car.accelerate()
+            car.accelerate(traction)
         if player_input['brake']:
-            car.brake()
+            car.brake(traction)
         if player_input['left']:
             car.turn_left()
         if player_input['right']:

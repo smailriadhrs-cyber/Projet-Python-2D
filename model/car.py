@@ -2,28 +2,34 @@ import pygame
 import math
 from constants import (
     CAR_ACCELERATION, CAR_BRAKE, CAR_MAX_SPEED, CAR_MAX_REVERSE_SPEED,
-    CAR_TURN_SPEED, CAR_AIR_FRICTION, CAR_DRIFT_THRESHOLD, CAR_DRIFT_FRICTION,
+    CAR_TURN_SPEED, CAR_AIR_FRICTION, CAR_GRIP_FACTOR,
+    CAR_DRIFT_FRICTION_FACTOR, CAR_DRIFT_SLOWDOWN_FACTOR,
+    CAR_BOOST_ACCELERATION, CAR_BOOST_MAX_SPEED,
     CAR_WIDTH, CAR_HEIGHT, TILE_SIZE
 )
-
+from model.road_tile import RoadTile
 
 class Car:
     """Represente une voiture, sa physique 2D (avec drift) et son affichage."""
 
     def __init__(
         self,
-        start_col: int,
-        start_row: int,
+        start_x: float,
+        start_y: float,
+        start_angle: float = 90.0,
         color: tuple[int, int, int] = (220, 40, 40)
     ):
-        """Place la voiture sur sa case de depart avec sa couleur."""
-        self.x = start_col * TILE_SIZE + TILE_SIZE // 2
-        self.y = start_row * TILE_SIZE + TILE_SIZE // 2
+        """Place la voiture a sa position de depart en pixels avec sa couleur."""
+        self.x: float = start_x
+        self.y: float = start_y
         self.vx: float = 0.0
         self.vy: float = 0.0
         self.speed: float = 0.0
-        self.angle: float = 0.0
+        self.angle: float = start_angle
         self.is_drifting: bool = False
+        self.checkpoint_x: float = start_x
+        self.checkpoint_y: float = start_y
+        self.checkpoint_angle: float = start_angle
         self.color = color
         self.sprite = self.build_sprite()
     def get_forward_vector(self) -> tuple[float, float]:
@@ -36,18 +42,22 @@ class Car:
         return math.cos(rad), math.sin(rad)
 
     def accelerate(self, traction: float = 1.0) -> None:
-        """Accelere dans la direction du capot sans depasser la vitesse maximale."""
+        """Accelere selon la traction du terrain sans couper un eventuel boost."""
+        current_speed = math.hypot(self.vx, self.vy)
+        if current_speed >= CAR_MAX_SPEED:
+            return
+
         fx, fy = self.get_forward_vector()
         self.vx += fx * CAR_ACCELERATION * traction
         self.vy += fy * CAR_ACCELERATION * traction
 
-        total_speed = math.hypot(self.vx, self.vy)
-        if total_speed > CAR_MAX_SPEED:
-            ratio = CAR_MAX_SPEED / total_speed
+        new_speed = math.hypot(self.vx, self.vy)
+        if new_speed > CAR_MAX_SPEED:
+            ratio = CAR_MAX_SPEED / new_speed
             self.vx *= ratio
             self.vy *= ratio
     def brake(self, traction: float = 1.0) -> None:
-        """Freine la voiture puis la fait reculer jusqu'a la vitesse max arriere."""
+        """Freine puis recule selon la traction du terrain jusqu'a la vitesse max arriere."""
         fx, fy = self.get_forward_vector()
         self.vx -= fx * CAR_BRAKE * traction
         self.vy -= fy * CAR_BRAKE * traction
@@ -57,6 +67,32 @@ class Car:
             diff = CAR_MAX_REVERSE_SPEED - v_forward
             self.vx += fx * diff
             self.vy += fy * diff
+    def apply_boost(self) -> None:
+        """Donne un bonus d'acceleration lorsque la voiture passe sur un bloc boost."""
+        fx, fy = self.get_forward_vector()
+        self.vx += fx * CAR_BOOST_ACCELERATION
+        self.vy += fy * CAR_BOOST_ACCELERATION
+
+        total_speed = math.hypot(self.vx, self.vy)
+        if total_speed > CAR_BOOST_MAX_SPEED:
+            ratio = CAR_BOOST_MAX_SPEED / total_speed
+            self.vx *= ratio
+            self.vy *= ratio
+    def save_checkpoint(self, tile: RoadTile) -> None:
+        """Enregistre le centre de la case checkpoint comme point de reapparition."""
+        self.checkpoint_x = (tile.col + 0.5) * TILE_SIZE
+        self.checkpoint_y = (tile.row + 0.5) * TILE_SIZE
+        self.checkpoint_angle = self.angle
+
+    def reset_to_checkpoint(self) -> None:
+        """Teleporte la voiture au dernier checkpoint avec une vitesse nulle."""
+        self.x = self.checkpoint_x
+        self.y = self.checkpoint_y
+        self.angle = self.checkpoint_angle
+        self.vx = 0.0
+        self.vy = 0.0
+        self.speed = 0.0
+        self.is_drifting = False
     def turn_left(self) -> None:
         """Fait tourner la voiture a gauche si elle est en mouvement."""
         if math.hypot(self.vx, self.vy) < 0.05:
@@ -82,35 +118,42 @@ class Car:
             self.vx = 0.0
             self.vy = 0.0
 
-    def update_position(
-        self,
-        drift_threshold: float = CAR_DRIFT_THRESHOLD,
-        drift_friction: float = CAR_DRIFT_FRICTION
-    ) -> None:
-        """Met a jour l'etat de derapage, la vitesse et la position 2D."""
+    def update_position(self, tile: RoadTile) -> None:
+        """Met a jour le derapage, la vitesse et la position selon le terrain courant."""
         self.apply_air_friction()
+
         fx, fy = self.get_forward_vector()
         lx, ly = self.get_lateral_vector()
+
         v_forward = self.vx * fx + self.vy * fy
         v_lateral = self.vx * lx + self.vy * ly
         total_speed = math.hypot(self.vx, self.vy)
 
-        
+        # Calcul de l'ecart angulaire (en degres) entre capot et vitesse
+        if total_speed > 0.05:
+            slip_angle = math.degrees(math.atan2(abs(v_lateral), abs(v_forward)))
+        else:
+            slip_angle = 0.0
+
+        # Declenchement et arret automatique du derapage selon le terrain
         if not self.is_drifting:
-            if abs(v_lateral) > drift_threshold and total_speed > 1.0:
+            if slip_angle > tile.drift_threshold and total_speed > 1.0:
                 self.is_drifting = True
         else:
-            if abs(v_lateral) < drift_threshold * 0.5 or total_speed < 0.5:
+            if slip_angle < tile.drift_threshold * 0.5 or total_speed < 0.5:
                 self.is_drifting = False
 
         if self.is_drifting:
-            v_lateral *= (1 - drift_friction)
-            self.vx = fx * v_forward + lx * v_lateral
-            self.vy = fy * v_forward + ly * v_lateral
+            # Frottements du sol en derapage (forts sur route, quasi nuls sur glace)
+            v_lateral *= (1 - tile.drift_friction * CAR_DRIFT_FRICTION_FACTOR)
+            v_forward *= (1 - tile.drift_friction * CAR_DRIFT_SLOWDOWN_FACTOR)
         else:
-            sign = 1 if v_forward >= 0 else -1
-            self.vx = fx * total_speed * sign
-            self.vy = fy * total_speed * sign
+            # En adherence, la vitesse laterale s'amortit rapidement
+            v_lateral *= (1 - CAR_GRIP_FACTOR)
+
+        self.vx = fx * v_forward + lx * v_lateral
+        self.vy = fy * v_forward + ly * v_lateral
+
         self.x += self.vx
         self.y += self.vy
         self.speed = math.hypot(self.vx, self.vy)
