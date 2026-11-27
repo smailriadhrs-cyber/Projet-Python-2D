@@ -46,6 +46,20 @@ CIRCUIT_LAYOUTS: dict[str, list[str]] = {
         "VBRR2LDDDDDDRRRV",
         "VVVVVVVVVVVVVVVV",
     ],
+    "Circuit 3 - Rallye Glace": [
+        "VVVVVVVVVVVVVVVV",
+        "VRRRRIIIICCBBRRV",
+        "VRRRRIIIICCBBRRV",
+        "VRRGGGGGGGGGGRRV",
+        "VCCGVVVVVVVVGRRV",
+        "VRRGVVVDDDDDDRRV",
+        "VRRGVVVDDDDDDRRV",
+        "VRRGVVVDDGGGGGVV",
+        "VRRGVVVCCGVVVVVV",
+        "VRR1LRRRRGVVVVVV",
+        "VRR2LRRRRGVVVVVV",
+        "VVVVVVVVVVVVVVVV",
+    ],
 }
 
 
@@ -143,6 +157,19 @@ class Circuit:
                 cy = (tile.row + 0.5) * TILE_SIZE
                 starts[player_num] = (cx, cy)
         return starts
+
+    def is_valid(self) -> bool:
+        """Vérifie que le circuit est rectangulaire et contient les blocs essentiels."""
+        if self.rows == 0 or self.cols == 0:
+            return False
+        if any(len(row) != self.cols for row in self.grid):
+            return False
+
+        starts = self.get_start_positions()
+        has_starts = 1 in starts and 2 in starts
+        has_finish = len(self.get_tiles_by_block("finish")) > 0
+        has_checkpoints = len(self.get_tiles_by_block("checkpoint")) > 0
+        return has_starts and has_finish and has_checkpoints
 
     def pixel_width(self) -> int:
         """Retourne la largeur totale du circuit en pixels."""
